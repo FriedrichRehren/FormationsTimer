@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="FormationsTimer.UI.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:localization="clr-namespace:FormationsTimer.UI.Localization"
+    Title="{x:Static localization:AppStrings.AppTitle}">
+    <TabBar>
+        <ShellContent
+            x:Name="HomeShellContent"
+            Route="HomePage"
+            Shell.NavBarIsVisible="False"
+            Title="{x:Static localization:AppStrings.HomeTabTitle}" />
+        <ShellContent
+            x:Name="SettingsShellContent"
+            Route="SettingsPage"
+            Shell.NavBarIsVisible="False"
+            Title="{x:Static localization:AppStrings.SettingsTabTitle}" />
+    </TabBar>
+</Shell>

@@ -1,0 +1,9 @@
+tools/
+README.md
+Dockerfile
+.dockerignore
+.gitattributes
+.gitignore
+compose.yaml
+.env
+.env.example

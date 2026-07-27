@@ -1,0 +1,125 @@
+name: Release
+run-name: 🚀 Release ${{ inputs.version || github.ref_name }}
+
+# Cut a release by pushing a tag:
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# Everything below runs in parallel — four MAUI platforms and the Docker image —
+# and only the GitHub Release at the end waits for all of them.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without the v prefix, e.g. 1.0.0'
+        type: string
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: 🔖 Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          case "$VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::'$VERSION' is not a semantic version"; exit 1 ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  apps:
+    name: 📦 Apps
+    needs: version
+    uses: ./.github/workflows/maui.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  pwa:
+    name: 🌐 PWA
+    uses: ./.github/workflows/web.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+  release:
+    name: 🚀 Release
+    needs: [version, apps, pwa]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Collect assets
+        run: |
+          mkdir -p release
+          # The Windows publish output is a folder, so it gets zipped here.
+          if [ -d artifacts/windows-x64 ]; then
+            (cd artifacts/windows-x64 && zip -qr "$GITHUB_WORKSPACE/release/formationstimer-windows-x64.zip" .)
+          fi
+          find artifacts -name '*.apk' -exec cp {} release/ \;
+          find artifacts -name '*.zip' -not -path 'artifacts/windows-x64/*' -exec cp {} release/ \;
+          ls -la release
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          IMAGE=$(echo "ghcr.io/${GITHUB_REPOSITORY}-web" | tr '[:upper:]' '[:lower:]')
+          cat > notes.md <<EOF
+          ### 🌐 PWA
+
+          Open the hosted app and choose "Install app", or run the image yourself:
+
+          \`\`\`bash
+          docker run -d -p 8080:80 ${IMAGE}:${VERSION}
+          \`\`\`
+
+          | Registry | Image |
+          | :--- | :--- |
+          | GHCR | \`${IMAGE}:${VERSION}\` |
+          | Docker Hub | \`friedrichrehren/formationstimer-web:${VERSION}\` |
+
+          ### 📦 Apps
+
+          | Platform | Asset |
+          | :--- | :--- |
+          | 🤖 Android | \`*-Signed.apk\` |
+          | 🪟 Windows | \`formationstimer-windows-x64.zip\` |
+          | 🖥️ macOS | \`formationstimer-maccatalyst.zip\` |
+          | 🍎 iOS | \`formationstimer-ios-simulator.zip\` (simulator) |
+
+          > None of these is signed for distribution: Android uses the debug key,
+          > the macOS bundle is ad-hoc signed and iOS is a simulator build. Each
+          > one installs after being trusted manually.
+          EOF
+
+          # --target so a manual run can create the tag; a tag push already has it.
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --notes-file notes.md \
+            --target "$GITHUB_SHA" \
+            release/*

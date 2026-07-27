@@ -1,0 +1,70 @@
+# Stack definition for Portainer.
+#
+# Portainer → Stacks → Add stack → Repository
+#   Repository URL     https://github.com/FriedrichRehren/FormationsTimer
+#   Reference          refs/heads/main
+#   Compose path       src/FormationsTimer.Web/compose.yaml
+#
+# Enable GitOps updates with the webhook mechanism, switch on the option that
+# re-pulls the image, and store the webhook URL as the repository secret
+# PORTAINER_WEBHOOK. Without the re-pull, Docker keeps the :latest image it
+# already has and the redeploy silently changes nothing.
+#
+# Variables live in .env.example — copy the values into the stack's environment
+# variables (or into a .env next to this file for a local docker compose up).
+name: formationstimer
+
+services:
+  formationstimer:
+    image: ${FORMATIONSTIMER_IMAGE}:${FORMATIONSTIMER_TAG}
+    container_name: ${FORMATIONSTIMER_CONTAINER_NAME}
+    restart: unless-stopped
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Static files only, so nothing needs a writable layer. nginx keeps its
+    # temp files and pid in tmpfs.
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+
+    environment:
+      TZ: ${TZ}
+
+    networks:
+      - proxy
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    labels:
+      # WUD — updates come from the GitHub Actions webhook, so this container is
+      # only displayed, not watched. Letting both rewrite the same tag would
+      # mean two mechanisms racing over one container.
+      wud.watch: "false"
+      wud.display.name: "Formations Timer"
+      wud.display.icon: "mdi:timer-outline"
+
+      # Traefik
+      traefik.enable: "true"
+      traefik.scope: "proxy"
+      traefik.docker.network: "${FORMATIONSTIMER_NETWORK}"
+
+      # Router
+      traefik.http.routers.formationstimer.rule: "Host(`${FORMATIONSTIMER_HOST}`)"
+      traefik.http.routers.formationstimer.entrypoints: "websecure"
+      traefik.http.routers.formationstimer.service: "formationstimer"
+      traefik.http.routers.formationstimer.tls: "true"
+
+      # Service
+      traefik.http.services.formationstimer.loadbalancer.server.port: "${FORMATIONSTIMER_INTERNAL_PORT}"
+
+networks:
+  proxy:
+    external: true
+    name: ${FORMATIONSTIMER_NETWORK}

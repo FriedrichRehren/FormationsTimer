@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="FormationsTimer.UI/FormationsTimer.UI.csproj" Id="8d956eb6-b998-4656-83aa-d616b26ac552">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>

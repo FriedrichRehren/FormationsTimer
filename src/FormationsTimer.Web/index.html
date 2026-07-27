@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Formation Timer</title>
+    <meta name="description" content="Stopwatch for formation dance rehearsals: mark every checkpoint of a run and see where the time goes." />
+    <meta name="theme-color" content="#F5EDE2" id="themeColorMeta" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Formation Timer" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <main class="views">
+        <!-- ── Timer ─────────────────────────────────────────────── -->
+        <section id="view-timer" class="view" aria-labelledby="timerHeading">
+          <div class="timer-layout">
+            <div class="column column--controls">
+              <header class="timer-head">
+                <h1 id="timerHeading" data-i18n="homeHeaderTitle"></h1>
+                <p class="detail" data-i18n="homeDurationLabel"></p>
+                <p class="head-value" id="configuredDuration"></p>
+              </header>
+
+              <div class="dial" id="dial">
+                <svg class="dial-ring" viewBox="0 0 220 220" aria-hidden="true">
+                  <circle class="ring-track" cx="110" cy="110" r="98" />
+                  <circle class="ring-progress" id="ringProgress" cx="110" cy="110" r="98" />
+                </svg>
+                <div class="dial-center">
+                  <p class="caption" data-i18n="remainingCaption"></p>
+                  <p class="countdown" id="remaining" role="timer" aria-live="off">00:00.0</p>
+                  <p class="badge badge--warning" id="overtimeBadge" hidden data-i18n="overtimeBadge"></p>
+                </div>
+              </div>
+
+              <div class="card">
+                <p class="caption" data-i18n="currentStageLabel"></p>
+                <p class="stage" id="currentStage"></p>
+                <p class="caption caption--spaced" data-i18n="nextActionLabel"></p>
+                <p class="detail" id="nextAction"></p>
+              </div>
+
+              <button type="button" class="btn btn--primary btn--huge" id="primaryAction"></button>
+
+              <div class="row-actions">
+                <button type="button" class="btn btn--ghost" id="undoButton" data-i18n="undoButton"></button>
+                <button type="button" class="btn btn--ghost" id="exportButton" data-i18n="exportButton"></button>
+                <button type="button" class="btn btn--ghost" id="resetButton" data-i18n="resetButton"></button>
+              </div>
+
+              <p class="hint keyboard-hint" data-i18n="keyboardHint"></p>
+            </div>
+
+            <div class="column column--list">
+              <h2 data-i18n="timestampTitle"></h2>
+              <ol class="timestamp-list" id="timestampList"></ol>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Settings ──────────────────────────────────────────── -->
+        <section id="view-settings" class="view" hidden aria-labelledby="settingsHeading">
+          <header class="view-head">
+            <h1 id="settingsHeading" data-i18n="settingsTitle"></h1>
+            <p class="detail" data-i18n="settingsSubtitle"></p>
+          </header>
+
+          <div class="card">
+            <h2 data-i18n="rehearsalDurationLabel"></h2>
+            <div class="field">
+              <label class="caption" for="minutesInput" data-i18n="maxMinutesLabel"></label>
+              <input
+                class="input"
+                id="minutesInput"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                placeholder="15"
+              />
+            </div>
+            <div class="chips" id="minutePresets"></div>
+            <p class="detail" id="durationEcho"></p>
+            <p class="warning" id="durationError" hidden data-i18n="durationValidationMessage"></p>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="stepLimitsTitle"></h2>
+            <p class="detail" data-i18n="stepLimitsSubtitle"></p>
+            <div class="limit-fields" id="limitFields"></div>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="behaviourTitle"></h2>
+            <label class="switch">
+              <input type="checkbox" id="soundToggle" />
+              <span data-i18n="soundLabel"></span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="vibrateToggle" />
+              <span data-i18n="vibrationLabel"></span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="wakeLockToggle" />
+              <span data-i18n="keepAwakeLabel"></span>
+            </label>
+            <p class="hint" id="wakeLockHint" hidden data-i18n="keepAwakeUnavailable"></p>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="appearanceTitle"></h2>
+            <div class="field">
+              <label class="caption" for="languageSelect" data-i18n="languageLabel"></label>
+              <select class="input" id="languageSelect">
+                <option value="auto" data-i18n="languageAuto"></option>
+                <option value="de">Deutsch</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="caption" for="themeSelect" data-i18n="themeLabel"></label>
+              <select class="input" id="themeSelect">
+                <option value="auto" data-i18n="themeAuto"></option>
+                <option value="light" data-i18n="themeLight"></option>
+                <option value="dark" data-i18n="themeDark"></option>
+              </select>
+            </div>
+            <button type="button" class="btn btn--ghost" id="installButton" hidden data-i18n="installButton"></button>
+          </div>
+        </section>
+
+        <!-- ── History ───────────────────────────────────────────── -->
+        <section id="view-history" class="view" hidden aria-labelledby="historyHeading">
+          <header class="view-head">
+            <h1 id="historyHeading" data-i18n="historyTitle"></h1>
+            <p class="detail" data-i18n="historySubtitle"></p>
+          </header>
+          <p class="empty-state" id="historyEmpty" data-i18n="historyEmpty"></p>
+          <div id="historyList"></div>
+          <button type="button" class="btn btn--ghost" id="clearHistoryButton" hidden data-i18n="historyClear"></button>
+        </section>
+      </main>
+
+      <nav class="tabbar" aria-label="Views">
+        <button type="button" class="tab is-active" data-view="timer" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8" /><path d="M12 13V8.5" /><path d="M9.5 2h5" /></svg>
+          <span data-i18n="homeTabTitle"></span>
+        </button>
+        <button type="button" class="tab" data-view="history">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h10" /></svg>
+          <span data-i18n="historyTabTitle"></span>
+        </button>
+        <button type="button" class="tab" data-view="settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6" /></svg>
+          <span data-i18n="settingsTabTitle"></span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+      <span id="toastText"></span>
+      <button type="button" class="toast-action" id="toastAction" hidden></button>
+    </div>
+
+    <script type="module" src="assets/app.js"></script>
+  </body>
+</html>

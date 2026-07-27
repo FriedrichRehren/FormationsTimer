@@ -1,0 +1,32 @@
+name: CI
+
+# Every push and every pull request tests everything: the PWA and all four MAUI
+# platforms. Nothing is published and nothing is deployed here — that is
+# release.yml's job, triggered by a version tag.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pwa:
+    name: 🌐 PWA
+    uses: ./.github/workflows/web.yml
+    permissions:
+      contents: read
+    with:
+      # Builds the image and smoke-tests it, but pushes nothing anywhere.
+      publish: false
+
+  # There are no unit tests in the MAUI project, so compiling every platform is
+  # the test. The four jobs run in parallel and upload their artifacts, which
+  # also means a build can be downloaded and tried out straight from a pull
+  # request without cutting a release.
+  apps:
+    name: 📦 Apps
+    uses: ./.github/workflows/maui.yml

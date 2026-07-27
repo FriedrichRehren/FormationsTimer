@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FormationsTimer.UI.Views.MainPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:behaviors="clr-namespace:FormationsTimer.UI.Behaviors"
+    xmlns:localization="clr-namespace:FormationsTimer.UI.Localization"
+    xmlns:viewModels="clr-namespace:FormationsTimer.UI.ViewModels"
+    x:DataType="viewModels:FormationTimerViewModel"
+    Title="{x:Static localization:AppStrings.HomeTabTitle}">
+
+    <ContentPage.Behaviors>
+        <behaviors:SpaceKeyBehavior Command="{Binding TriggerPrimaryActionCommand}" />
+    </ContentPage.Behaviors>
+
+    <Grid>
+        <ScrollView
+            x:Name="PortraitLayout"
+            HorizontalScrollBarVisibility="Never"
+            VerticalScrollBarVisibility="Never">
+            <VerticalStackLayout
+                Padding="24"
+                Spacing="20">
+
+                <VerticalStackLayout Spacing="6">
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource SectionTitleLabel}"
+                        Text="{x:Static localization:AppStrings.HomeHeaderTitle}" />
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource DetailLabel}"
+                        Text="{x:Static localization:AppStrings.HomeDurationLabel}" />
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="18"
+                        HorizontalTextAlignment="Center"
+                        Text="{Binding ConfiguredDurationText}" />
+                </VerticalStackLayout>
+
+                <Label
+                    FontFamily="OpenSansSemibold"
+                    FontSize="54"
+                    HorizontalTextAlignment="Center"
+                    Text="{Binding RemainingTimeText}">
+                    <Label.Triggers>
+                        <DataTrigger
+                            Binding="{Binding IsOvertime}"
+                            TargetType="Label"
+                            Value="True">
+                            <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+
+                <Border Style="{StaticResource SurfaceCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label
+                            Style="{StaticResource SectionCaptionLabel}"
+                            Text="{x:Static localization:AppStrings.CurrentStageLabel}" />
+                        <Label
+                            Style="{StaticResource SectionTitleLabel}"
+                            Text="{Binding CurrentStageText}" />
+
+                        <Label
+                            Margin="0,8,0,0"
+                            Style="{StaticResource SectionCaptionLabel}"
+                            Text="{x:Static localization:AppStrings.NextActionLabel}" />
+                        <Label
+                            Style="{StaticResource DetailLabel}"
+                            Text="{Binding NextActionText}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button
+                    x:Name="PortraitPrimaryActionButton"
+                    Command="{Binding TriggerPrimaryActionCommand}"
+                    FontSize="20"
+                    HeightRequest="72"
+                    Style="{StaticResource PrimaryActionButton}"
+                    Text="{Binding PrimaryActionText}" />
+
+                <VerticalStackLayout Spacing="10">
+                    <Label
+                        Style="{StaticResource SectionTitleLabel}"
+                        Text="{x:Static localization:AppStrings.TimestampTitle}" />
+
+                    <VerticalStackLayout
+                        BindableLayout.ItemsSource="{Binding TimestampRows}"
+                        Spacing="10">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TimestampRowViewModel">
+                                <Border Style="{StaticResource SurfaceCard}">
+                                    <Grid
+                                        ColumnDefinitions="*,Auto"
+                                        RowDefinitions="Auto,Auto"
+                                        RowSpacing="4">
+                                        <Label
+                                            Style="{StaticResource SectionTitleLabel}"
+                                            Text="{Binding Title}" />
+                                        <Label
+                                            Grid.Column="1"
+                                            FontFamily="OpenSansSemibold"
+                                            FontSize="18"
+                                            HorizontalTextAlignment="End"
+                                            Text="{Binding ElapsedText}">
+                                            <Label.Triggers>
+                                                <DataTrigger
+                                                    Binding="{Binding IsOverLimit}"
+                                                    TargetType="Label"
+                                                    Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <Label
+                                            Grid.Row="1"
+                                            Grid.ColumnSpan="2"
+                                            Style="{StaticResource DetailLabel}"
+                                            Text="{Binding ClockText}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid
+            x:Name="LandscapeLayout"
+            Padding="24"
+            ColumnDefinitions="1.15*,0.85*"
+            ColumnSpacing="24"
+            IsVisible="False">
+
+            <ScrollView
+                Grid.Column="0"
+                HorizontalScrollBarVisibility="Never"
+                VerticalScrollBarVisibility="Never"
+                VerticalOptions="Fill">
+                <VerticalStackLayout Spacing="10">
+                    <Label
+                        Style="{StaticResource SectionTitleLabel}"
+                        Text="{x:Static localization:AppStrings.TimestampTitle}" />
+
+                    <VerticalStackLayout
+                        BindableLayout.ItemsSource="{Binding TimestampRows}"
+                        Spacing="10">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TimestampRowViewModel">
+                                <Border Style="{StaticResource SurfaceCard}">
+                                    <Grid
+                                        ColumnDefinitions="*,Auto"
+                                        RowDefinitions="Auto,Auto"
+                                        RowSpacing="4">
+                                        <Label
+                                            Style="{StaticResource SectionTitleLabel}"
+                                            Text="{Binding Title}" />
+                                        <Label
+                                            Grid.Column="1"
+                                            FontFamily="OpenSansSemibold"
+                                            FontSize="18"
+                                            HorizontalTextAlignment="End"
+                                            Text="{Binding ElapsedText}">
+                                            <Label.Triggers>
+                                                <DataTrigger
+                                                    Binding="{Binding IsOverLimit}"
+                                                    TargetType="Label"
+                                                    Value="True">
+                                                    <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <Label
+                                            Grid.Row="1"
+                                            Grid.ColumnSpan="2"
+                                            Style="{StaticResource DetailLabel}"
+                                            Text="{Binding ClockText}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <VerticalStackLayout
+                Grid.Column="1"
+                Spacing="20">
+
+                <VerticalStackLayout Spacing="6">
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource SectionTitleLabel}"
+                        Text="{x:Static localization:AppStrings.HomeHeaderTitle}" />
+                    <Label
+                        HorizontalTextAlignment="Center"
+                        Style="{StaticResource DetailLabel}"
+                        Text="{x:Static localization:AppStrings.HomeDurationLabel}" />
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="18"
+                        HorizontalTextAlignment="Center"
+                        Text="{Binding ConfiguredDurationText}" />
+                </VerticalStackLayout>
+
+                <Label
+                    FontFamily="OpenSansSemibold"
+                    FontSize="54"
+                    HorizontalTextAlignment="Center"
+                    Text="{Binding RemainingTimeText}">
+                    <Label.Triggers>
+                        <DataTrigger
+                            Binding="{Binding IsOvertime}"
+                            TargetType="Label"
+                            Value="True">
+                            <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+
+                <Border Style="{StaticResource SurfaceCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label
+                            Style="{StaticResource SectionCaptionLabel}"
+                            Text="{x:Static localization:AppStrings.CurrentStageLabel}" />
+                        <Label
+                            Style="{StaticResource SectionTitleLabel}"
+                            Text="{Binding CurrentStageText}" />
+
+                        <Label
+                            Margin="0,8,0,0"
+                            Style="{StaticResource SectionCaptionLabel}"
+                            Text="{x:Static localization:AppStrings.NextActionLabel}" />
+                        <Label
+                            Style="{StaticResource DetailLabel}"
+                            Text="{Binding NextActionText}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button
+                    x:Name="LandscapePrimaryActionButton"
+                    Command="{Binding TriggerPrimaryActionCommand}"
+                    FontSize="20"
+                    HeightRequest="72"
+                    Style="{StaticResource PrimaryActionButton}"
+                    Text="{Binding PrimaryActionText}" />
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

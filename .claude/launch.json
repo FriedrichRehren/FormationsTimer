@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5188", "--directory", "src/FormationsTimer.Web"],
+      "port": 5188,
+      "autoPort": false
+    }
+  ]
+}

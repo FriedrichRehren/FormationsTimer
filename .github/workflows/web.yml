@@ -1,0 +1,196 @@
+name: PWA
+
+# Reusable: called by ci.yml (pushes, tests only) and release.yml (version tags,
+# publishes and deploys). The image is built and smoke-tested either way — only
+# pushing to the registries and calling Portainer depend on `publish`.
+on:
+  workflow_call:
+    inputs:
+      publish:
+        description: 'Push the image to the registries and deploy it'
+        type: boolean
+        required: false
+        default: true
+      deploy:
+        description: 'Call the Portainer webhook after pushing'
+        type: boolean
+        required: false
+        default: true
+
+jobs:
+  check:
+    name: 🧪 Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Static checks
+        run: node src/FormationsTimer.Web/tools/check.mjs
+
+      - name: nginx config
+        run: |
+          docker run --rm \
+            -v "$PWD/src/FormationsTimer.Web/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$PWD/src/FormationsTimer.Web/headers.conf:/etc/nginx/headers.conf:ro" \
+            nginx:1.29-alpine-slim nginx -t
+
+  image:
+    name: 🐳 Image
+    needs: check
+    runs-on: ubuntu-latest
+    # No permissions block on purpose: a called workflow can never hold more
+    # than its caller granted, and the repository default is read-only. ci.yml
+    # grants nothing extra because it publishes nothing; release.yml grants
+    # packages: write.
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      # Registries reject upper case and the repository name has it. Docker Hub
+      # is optional: without DOCKERHUB_USERNAME the image only goes to GHCR.
+      - name: Resolve registries
+        if: inputs.publish
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          GHCR_IMAGE=$(echo "ghcr.io/${GITHUB_REPOSITORY}-web" | tr '[:upper:]' '[:lower:]')
+          echo "GHCR_IMAGE=$GHCR_IMAGE" >> "$GITHUB_ENV"
+          IMAGES="$GHCR_IMAGE"
+
+          if [ -n "$DOCKERHUB_USERNAME" ]; then
+            HUB_IMAGE="docker.io/$(echo "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')/formationstimer-web"
+            echo "HUB_IMAGE=$HUB_IMAGE" >> "$GITHUB_ENV"
+            IMAGES="$IMAGES"$'\n'"$HUB_IMAGE"
+          else
+            echo "DOCKERHUB_USERNAME is not set — publishing to GHCR only." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          {
+            echo 'IMAGES<<__EOF__'
+            echo "$IMAGES"
+            echo '__EOF__'
+          } >> "$GITHUB_ENV"
+
+      - name: Set up QEMU
+        if: inputs.publish
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: inputs.publish
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: inputs.publish && env.HUB_IMAGE != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive tags and labels
+        if: inputs.publish
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGES }}
+          # semver entries only produce anything on a v* tag; latest and sha
+          # are always there. So a main push gives latest + sha-…, and a tag
+          # additionally gives 1.2.3 and 1.2.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+            type=sha,format=short
+          labels: |
+            org.opencontainers.image.title=Formations Timer PWA
+            org.opencontainers.image.description=Stopwatch for formation dance rehearsals
+
+      # A test build stays on amd64 and is loaded into the local daemon so the
+      # smoke test can run it. A publishing build does both architectures and
+      # pushes, and the smoke test then pulls it back from the registry — which
+      # also proves the push itself worked.
+      - name: Build${{ inputs.publish && ' and push' || ' for testing' }}
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: src/FormationsTimer.Web
+          platforms: ${{ inputs.publish && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          push: ${{ inputs.publish }}
+          load: ${{ !inputs.publish }}
+          tags: ${{ inputs.publish && steps.meta.outputs.tags || 'formationstimer-web:ci' }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          # Stamps the service worker's cache name, so every deploy invalidates
+          # the precache and installed clients are offered the update.
+          build-args: BUILD_ID=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the image
+        run: |
+          if [ "${{ inputs.publish }}" = "true" ]; then
+            IMAGE_REF="${GHCR_IMAGE}:latest"
+          else
+            IMAGE_REF="formationstimer-web:ci"
+          fi
+
+          docker run -d --rm --name smoke -p 8080:80 "$IMAGE_REF"
+          for _ in $(seq 1 20); do
+            curl -fsS http://localhost:8080/healthz >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8080/healthz
+          # A wrong MIME type here means a blank page in production, because the
+          # nosniff header stops the browser from guessing.
+          curl -fsSI http://localhost:8080/ | grep -qi 'content-type: text/html'
+          curl -fsSI http://localhost:8080/sw.js | grep -qi 'content-type: application/javascript'
+          curl -fsS http://localhost:8080/sw.js | grep -q "const CACHE_VERSION = '${GITHUB_SHA}';"
+          docker stop smoke
+
+      - name: Deploy via Portainer webhook
+        if: inputs.publish && inputs.deploy
+        env:
+          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "PORTAINER_WEBHOOK is not set — image published, no deploy triggered." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # --fail so a broken webhook fails the run instead of passing silently.
+          curl --fail --silent --show-error --max-time 60 -X POST "$WEBHOOK" > /dev/null
+          echo "Deploy triggered." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary
+        if: inputs.publish
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo '### 🐳 Published'
+            echo
+            echo '| | |'
+            echo '| :--- | :--- |'
+            echo "| Platforms | \`linux/amd64\`, \`linux/arm64\` |"
+            echo "| Digest | \`${DIGEST}\` |"
+            echo
+            echo '<details><summary>Tags</summary>'
+            echo
+            echo "$TAGS" | sed 's/^/- `/; s/$/`/'
+            echo
+            echo '</details>'
+            echo
+            echo '> Roll back by setting `FORMATIONSTIMER_TAG` to a `sha-…` of a good build — no rebuild needed.'
+          } >> "$GITHUB_STEP_SUMMARY"

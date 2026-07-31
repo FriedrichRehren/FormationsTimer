@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FormationsTimer.UI.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:localization="clr-namespace:FormationsTimer.UI.Localization"
+    xmlns:viewModels="clr-namespace:FormationsTimer.UI.ViewModels"
+    x:DataType="viewModels:FormationTimerViewModel"
+    Title="{x:Static localization:AppStrings.SettingsTabTitle}">
+
+    <ScrollView>
+        <VerticalStackLayout
+            Padding="24"
+            Spacing="18">
+
+            <VerticalStackLayout Spacing="6">
+                <Label
+                    Style="{StaticResource SectionTitleLabel}"
+                    Text="{x:Static localization:AppStrings.SettingsTitle}" />
+                <Label
+                    Style="{StaticResource DetailLabel}"
+                    Text="{x:Static localization:AppStrings.SettingsSubtitle}" />
+            </VerticalStackLayout>
+
+            <Border Style="{StaticResource SurfaceCard}">
+                <VerticalStackLayout Spacing="16">
+                    <Label
+                        Style="{StaticResource SectionTitleLabel}"
+                        Text="{x:Static localization:AppStrings.RehearsalDurationLabel}" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label
+                            Style="{StaticResource SectionCaptionLabel}"
+                            Text="{x:Static localization:AppStrings.MaxMinutesLabel}" />
+                        <Border Style="{StaticResource InputShell}">
+                            <Entry
+                                Keyboard="Numeric"
+                                Placeholder="15"
+                                Text="{Binding MaxMinutes}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Label
+                        Style="{StaticResource DetailLabel}"
+                        Text="{Binding ConfiguredDurationText}" />
+
+                    <Label
+                        IsVisible="{Binding HasDurationValidationMessage}"
+                        Style="{StaticResource WarningLabel}"
+                        Text="{Binding DurationValidationMessage}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource SurfaceCard}">
+                <VerticalStackLayout Spacing="16">
+                    <VerticalStackLayout Spacing="6">
+                        <Label
+                            Style="{StaticResource SectionTitleLabel}"
+                            Text="{x:Static localization:AppStrings.StepLimitsTitle}" />
+                        <Label
+                            Style="{StaticResource DetailLabel}"
+                            Text="{x:Static localization:AppStrings.StepLimitsSubtitle}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout
+                        BindableLayout.ItemsSource="{Binding ConfigurableTimestampRows}"
+                        Spacing="14">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:TimestampRowViewModel">
+                                <VerticalStackLayout Spacing="6">
+                                    <Label
+                                        Style="{StaticResource SectionTitleLabel}"
+                                        Text="{Binding Title}" />
+                                    <Label
+                                        Style="{StaticResource SectionCaptionLabel}"
+                                        Text="{x:Static localization:AppStrings.StepLimitInputLabel}" />
+                                    <Border Style="{StaticResource InputShell}">
+                                        <Entry
+                                            Placeholder="mm:ss"
+                                            Text="{Binding MaxDurationInput}" />
+                                    </Border>
+                                    <Label
+                                        IsVisible="{Binding HasMaxDurationValidationMessage}"
+                                        Style="{StaticResource WarningLabel}"
+                                        Text="{Binding MaxDurationValidationMessage}" />
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

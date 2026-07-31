@@ -1,0 +1,254 @@
+name: Apps
+
+# Reusable: called by ci.yml (pushes and pull requests) and release.yml (version
+# tags). It has no trigger of its own — ci.yml owns the path filtering, so this
+# only ever runs when something under src/FormationsTimer.UI actually changed.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Display version to stamp into the apps, e.g. 1.2.3'
+        type: string
+        required: false
+        default: ''
+
+env:
+  PROJECT: src/FormationsTimer.UI/FormationsTimer.UI.csproj
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  # The .NET for iOS/MacCatalyst SDK demands one specific Xcode and refuses to
+  # build against anything else. The runner image ships several and its default
+  # lags behind, so the version has to be selected explicitly. When this breaks
+  # after an SDK bump, the build error names the version it wants — put it here.
+  XCODE_VERSION: '26.6'
+
+# The four jobs are independent and run in parallel. Each overrides
+# TargetFrameworks with a global MSBuild property — the project file cannot
+# override that — so restore and build only ever touch one platform and every
+# runner needs exactly one workload instead of all four.
+jobs:
+  android:
+    name: 🤖 Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-android-${{ hashFiles('src/FormationsTimer.UI/*.csproj') }}
+          restore-keys: nuget-android-
+
+      - name: Install workload
+        run: dotnet workload install maui-android --skip-sign-check
+
+      - name: Publish
+        run: |
+          dotnet publish "$PROJECT" \
+            -c Release \
+            -f net10.0-android \
+            -p:TargetFrameworks=net10.0-android \
+            -p:ContinuousIntegrationBuild=true \
+            ${VERSION:+-p:ApplicationDisplayVersion=$VERSION} \
+            -p:ApplicationVersion=${{ github.run_number }}
+        env:
+          VERSION: ${{ inputs.version }}
+
+      # Only the signed APK from publish/: the build leaves four near-identical
+      # copies behind (signed and unsigned, once in the TFM root and once under
+      # publish/), which turns a 28 MB artifact into a 105 MB one.
+      #
+      # "Signed" here means the Android debug key, which .NET Android falls back
+      # to when no keystore is configured. Installable, but not fit for a store —
+      # see the README for wiring up a release keystore.
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-apk
+          path: src/FormationsTimer.UI/bin/Release/net10.0-android/publish/*-Signed.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    name: 🪟 Windows
+    runs-on: windows-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ~\.nuget\packages
+          key: nuget-windows-${{ hashFiles('src/FormationsTimer.UI/*.csproj') }}
+          restore-keys: nuget-windows-
+
+      - name: Install workload
+        run: dotnet workload install maui-windows --skip-sign-check
+
+      - name: Publish
+        shell: bash
+        run: |
+          dotnet publish "$PROJECT" \
+            -c Release \
+            -f net10.0-windows10.0.19041.0 \
+            -p:TargetFrameworks=net10.0-windows10.0.19041.0 \
+            -p:RuntimeIdentifier=win-x64 \
+            -p:WindowsPackageType=None \
+            -p:ContinuousIntegrationBuild=true \
+            ${VERSION:+-p:ApplicationDisplayVersion=$VERSION} \
+            -p:ApplicationVersion=${{ github.run_number }}
+        env:
+          VERSION: ${{ inputs.version }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64
+          path: src/FormationsTimer.UI/bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/
+          if-no-files-found: error
+          retention-days: 14
+
+  maccatalyst:
+    name: 🖥️ macOS
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Select Xcode
+        run: |
+          APP="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::Xcode ${XCODE_VERSION} is not installed on this runner. Available:"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$APP/Contents/Developer"
+          xcodebuild -version
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-maccatalyst-${{ hashFiles('src/FormationsTimer.UI/*.csproj') }}
+          restore-keys: nuget-maccatalyst-
+
+      - name: Install workload
+        run: dotnet workload install maui-maccatalyst --skip-sign-check
+
+      - name: Build
+        run: |
+          dotnet build "$PROJECT" \
+            -c Release \
+            -f net10.0-maccatalyst \
+            -p:TargetFrameworks=net10.0-maccatalyst \
+            -p:ContinuousIntegrationBuild=true \
+            ${VERSION:+-p:ApplicationDisplayVersion=$VERSION} \
+            -p:ApplicationVersion=${{ github.run_number }}
+        env:
+          VERSION: ${{ inputs.version }}
+
+      # Ad-hoc signed: runs on a Mac that is told to trust it, but it is not
+      # notarised and therefore not distributable. Notarisation needs a paid
+      # Apple Developer ID plus certificates in secrets.
+      - name: Package the app bundle
+        run: |
+          APP=$(find src/FormationsTimer.UI/bin/Release/net10.0-maccatalyst -maxdepth 2 -name '*.app' | head -1)
+          test -n "$APP" || { echo "::error::no .app bundle was produced"; exit 1; }
+          ditto -c -k --keepParent "$APP" formationstimer-maccatalyst.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: maccatalyst-app
+          path: formationstimer-maccatalyst.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: 🍎 iOS
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Select Xcode
+        run: |
+          APP="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::Xcode ${XCODE_VERSION} is not installed on this runner. Available:"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$APP/Contents/Developer"
+          xcodebuild -version
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-ios-${{ hashFiles('src/FormationsTimer.UI/*.csproj') }}
+          restore-keys: nuget-ios-
+
+      - name: Install workload
+        run: dotnet workload install maui-ios --skip-sign-check
+
+      # Simulator build on purpose: a device build needs a signing certificate
+      # and a provisioning profile, which cannot be handed to pull requests from
+      # forks. This still compiles every line of iOS code.
+      - name: Build (simulator)
+        run: |
+          dotnet build "$PROJECT" \
+            -c Release \
+            -f net10.0-ios \
+            -p:TargetFrameworks=net10.0-ios \
+            -p:RuntimeIdentifier=iossimulator-arm64 \
+            -p:ContinuousIntegrationBuild=true \
+            ${VERSION:+-p:ApplicationDisplayVersion=$VERSION} \
+            -p:ApplicationVersion=${{ github.run_number }}
+        env:
+          VERSION: ${{ inputs.version }}
+
+      - name: Package the app bundle
+        run: |
+          APP=$(find src/FormationsTimer.UI/bin/Release/net10.0-ios -maxdepth 3 -name '*.app' | head -1)
+          test -n "$APP" || { echo "::error::no .app bundle was produced"; exit 1; }
+          ditto -c -k --keepParent "$APP" formationstimer-ios-simulator.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-simulator-app
+          path: formationstimer-ios-simulator.zip
+          if-no-files-found: error
+          retention-days: 14

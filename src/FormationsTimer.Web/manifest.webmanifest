@@ -1,0 +1,42 @@
+{
+  "name": "Formation Timer",
+  "short_name": "Formations",
+  "description": "Stopwatch for formation dance rehearsals: mark every checkpoint of a run and see where the time goes.",
+  "id": "de.friedrichrehren.formationstimer",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#FFFDFC",
+  "theme_color": "#F5EDE2",
+  "lang": "de",
+  "dir": "ltr",
+  "categories": ["sports", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

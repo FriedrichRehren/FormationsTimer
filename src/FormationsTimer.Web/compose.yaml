@@ -1,17 +1,16 @@
-# Stack definition for Portainer.
+# Stack definition for local runs.
 #
-# Portainer → Stacks → Add stack → Repository
-#   Repository URL     https://github.com/FriedrichRehren/FormationsTimer
-#   Reference          refs/heads/main
-#   Compose path       src/FormationsTimer.Web/compose.yaml
+# The deployed copy of this stack lives in the deployment repository `dockops`
+# under apps/internal/formations-timer/compose.yaml and is rolled out by
+# Dockhand. Changes that affect production belong there, not here.
 #
-# Enable GitOps updates with the webhook mechanism, switch on the option that
-# re-pulls the image, and store the webhook URL as the repository secret
-# PORTAINER_WEBHOOK. Without the re-pull, Docker keeps the :latest image it
-# already has and the redeploy silently changes nothing.
+# Releases trigger a redeploy through the webhook stored as the repository
+# secret DEPLOY_WEBHOOK. That webhook has to re-pull the image; without it,
+# Docker keeps the :latest image it already has and the redeploy silently
+# changes nothing.
 #
-# Variables live in .env.example — copy the values into the stack's environment
-# variables (or into a .env next to this file for a local docker compose up).
+# Variables live in .env.example — copy them into a .env next to this file for
+# a local docker compose up.
 name: formationstimer
 
 services:

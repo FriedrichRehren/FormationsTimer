@@ -92,7 +92,7 @@ Release  ── on a v* tag
 | Workflow | Trigger | Does |
 | --- | --- | --- |
 | [`ci.yml`](.github/workflows/ci.yml) | push, PR | Everything is tested, nothing is published |
-| [`web.yml`](.github/workflows/web.yml) | called | The PWA: checks, `nginx -t`, multi-arch image, smoke test, and — only when publishing — GHCR, Docker Hub and the Portainer webhook |
+| [`web.yml`](.github/workflows/web.yml) | called | The PWA: checks, `nginx -t`, multi-arch image, smoke test, and — only when publishing — GHCR, Docker Hub and the deploy webhook |
 | [`maui.yml`](.github/workflows/maui.yml) | called | Android, Windows, Mac Catalyst and iOS in parallel, each uploading an artifact |
 | [`release.yml`](.github/workflows/release.yml) | tag `v*` | The same two, then publish, deploy and cut a GitHub Release |
 

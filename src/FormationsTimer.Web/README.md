@@ -21,7 +21,7 @@ Then open <http://localhost:5188>.
 
 Every push is checked and the image is built and smoke-tested, but nothing is
 published. A `v*` tag pushes the image to GHCR and Docker Hub and triggers the
-Portainer webhook. See [CI/CD](#cicd) below.
+deploy webhook. See [CI/CD](#cicd) below.
 
 The cache version does **not** have to be bumped by hand: the image build
 replaces `CACHE_VERSION = 'dev'` in `sw.js` with the commit SHA, so every deploy
@@ -42,30 +42,29 @@ Everything uses relative paths, so serving from a subfolder
 
 2. After the first release, the package `formationstimer-web` appears
    under the repository. Either make it public
-   (*Package settings → Change visibility*) or add GHCR credentials in
-   Portainer (*Registries → Add registry → Custom*, `ghcr.io`, GitHub username,
-   a PAT with `read:packages`).
+   (*Package settings → Change visibility*) or log the deployment host in to
+   GHCR with a PAT that has `read:packages`.
 
-3. In Portainer add a stack from this repository (*Add stack → Repository*,
-   compose path `src/FormationsTimer.Web/compose.yaml`) and fill its
-   environment variables from [`.env.example`](.env.example). The container
-   publishes no port; it joins Traefik's external network and is routed by the
-   labels in `compose.yaml`. TLS is not optional — browsers refuse to register
-   a service worker over plain HTTP.
+3. The stack itself is **not** deployed from this repository. It lives in the
+   deployment repository `dockops` under
+   `apps/internal/formations-timer/compose.yaml` and is rolled out by Dockhand.
+   The `compose.yaml` next to this README is kept for local runs only. The
+   container publishes no port; it joins Traefik's external network and is
+   routed by its labels. TLS is not optional — browsers refuse to register a
+   service worker over plain HTTP.
 
-4. Enable GitOps updates with the webhook mechanism **and the option that
-   re-pulls the image**. Without it Portainer pulls the repository, sees an
-   unchanged compose file, finds `:latest` already present locally and redeploys
-   the old image while reporting success. Store the webhook URL as the
-   repository secret `PORTAINER_WEBHOOK` (*Settings → Secrets and variables →
-   Actions*); without the secret the workflow still publishes the image and just
-   skips the deploy.
+4. Create a redeploy webhook for that stack in Dockhand and make sure it
+   **re-pulls the image**. Without the pull, the tag `:latest` is already
+   present locally, so the redeploy restarts the old image and reports success.
+   Store the webhook URL as the repository secret `DEPLOY_WEBHOOK` (*Settings →
+   Secrets and variables → Actions*); without the secret the workflow still
+   publishes the image and just skips the deploy.
 
-   Polling instead of the webhook does not work here: for a repository stack
-   Portainer polls the *repository*, not the registry, so a new image without a
-   commit would never be noticed.
+   Polling the repository instead of using the webhook does not work here: the
+   compose file does not change when a new image is published, so a release
+   without a commit to `dockops` would never be noticed.
 
-5. Verify once that updates actually land, on the Portainer host:
+5. Verify once that updates actually land, on the deployment host:
 
    ```bash
    docker inspect --format '{{index .RepoDigests 0}}' formationstimer
@@ -79,7 +78,7 @@ Everything uses relative paths, so serving from a subfolder
 | Trigger | Runs |
 | --- | --- |
 | push, pull request | Checks, `nginx -t`, image build (amd64 only, kept local), smoke test — plus all four MAUI platforms |
-| tag `v*` | The same, plus multi-arch push to both registries, the Portainer webhook and a GitHub Release |
+| tag `v*` | The same, plus multi-arch push to both registries, the deploy webhook and a GitHub Release |
 
 So a broken Dockerfile, a broken nginx config or a broken precache list fails on
 the push that caused it — but only a tag ever reaches the server.
@@ -122,7 +121,7 @@ anyway.
 | `sw.js` | Offline precache |
 | `Dockerfile` | nginx image; stamps the cache version with the commit SHA |
 | `nginx.conf`, `headers.conf` | MIME types, cache and security headers |
-| `compose.yaml`, `.env.example` | Stack definition for Portainer, behind Traefik |
+| `compose.yaml`, `.env.example` | Stack definition for local runs; the deployed copy lives in `dockops` |
 | `tools/check.mjs` | CI checks, also runnable locally |
 | `tools/generate-icons.py` | Rasterises `icons/icon.svg` into the manifest PNGs (needs Pillow) |
 

@@ -2,7 +2,7 @@ name: PWA
 
 # Reusable: called by ci.yml (pushes, tests only) and release.yml (version tags,
 # publishes and deploys). The image is built and smoke-tested either way — only
-# pushing to the registries and calling Portainer depend on `publish`.
+# pushing to the registries and calling the deploy webhook depend on `publish`.
 on:
   workflow_call:
     inputs:
@@ -12,7 +12,7 @@ on:
         required: false
         default: true
       deploy:
-        description: 'Call the Portainer webhook after pushing'
+        description: 'Call the deploy webhook after pushing'
         type: boolean
         required: false
         default: true
@@ -159,13 +159,13 @@ jobs:
           curl -fsS http://localhost:8080/sw.js | grep -q "const CACHE_VERSION = '${GITHUB_SHA}';"
           docker stop smoke
 
-      - name: Deploy via Portainer webhook
+      - name: Deploy via webhook
         if: inputs.publish && inputs.deploy
         env:
-          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK }}
+          WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
         run: |
           if [ -z "$WEBHOOK" ]; then
-            echo "PORTAINER_WEBHOOK is not set — image published, no deploy triggered." >> "$GITHUB_STEP_SUMMARY"
+            echo "DEPLOY_WEBHOOK is not set — image published, no deploy triggered." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           # --fail so a broken webhook fails the run instead of passing silently.

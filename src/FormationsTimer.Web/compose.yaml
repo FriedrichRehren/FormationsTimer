@@ -5,9 +5,9 @@
 # Dockhand. Changes that affect production belong there, not here.
 #
 # Releases trigger a redeploy through the webhook stored as the repository
-# secret DEPLOY_WEBHOOK. That webhook has to re-pull the image; without it,
-# Docker keeps the :latest image it already has and the redeploy silently
-# changes nothing.
+# secrets DEPLOY_WEBHOOK_URL and DEPLOY_WEBHOOK_SECRET. That webhook needs
+# force redeploy enabled; otherwise Dockhand sees an unchanged repository,
+# skips the deployment and still reports success.
 #
 # Variables live in .env.example — copy them into a .env next to this file for
 # a local docker compose up.

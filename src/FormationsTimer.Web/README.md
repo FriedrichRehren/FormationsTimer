@@ -53,12 +53,27 @@ Everything uses relative paths, so serving from a subfolder
    routed by its labels. TLS is not optional — browsers refuse to register a
    service worker over plain HTTP.
 
-4. Create a redeploy webhook for that stack in Dockhand and make sure it
-   **re-pulls the image**. Without the pull, the tag `:latest` is already
-   present locally, so the redeploy restarts the old image and reports success.
-   Store the webhook URL as the repository secret `DEPLOY_WEBHOOK` (*Settings →
-   Secrets and variables → Actions*); without the secret the workflow still
-   publishes the image and just skips the deploy.
+4. Enable the webhook for that stack in Dockhand, set a webhook secret, and
+   turn on **force redeploy**. Dockhand compares the Git repository against its
+   last checkout and skips the deployment when nothing changed — and the
+   compose file does not change when a new image is published, so without force
+   redeploy the webhook answers `{"success":true,"skipped":true}` and nothing
+   is deployed.
+
+   Store the two values as repository secrets (*Settings → Secrets and
+   variables → Actions*):
+
+   | Secret | Value |
+   | --- | --- |
+   | `DEPLOY_WEBHOOK_URL` | `https://<dockhand-host>/api/git/stacks/<id>/webhook` |
+   | `DEPLOY_WEBHOOK_SECRET` | the webhook secret configured on the stack |
+
+   The workflow sends the secret as an `X-Gitlab-Token` header rather than
+   appending it as a `?secret=` query parameter, which the endpoint also
+   accepts: Traefik logs full request URLs, so a token in the URL would end up
+   in the access log on the server. Without `DEPLOY_WEBHOOK_URL` the workflow
+   still publishes the image and just skips the deploy; with the URL but no
+   secret it fails rather than firing an unauthenticated request.
 
    Polling the repository instead of using the webhook does not work here: the
    compose file does not change when a new image is published, so a release
